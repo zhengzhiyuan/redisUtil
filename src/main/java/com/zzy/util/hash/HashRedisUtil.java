@@ -1,9 +1,8 @@
-package com.zzy.util;
+package com.zzy.util.hash;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.ResourceBundle;
 
 import org.apache.commons.lang.math.NumberUtils;
 import org.slf4j.Logger;
@@ -13,7 +12,12 @@ import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
 
-// redis 工具类
+/**
+ * 对redis pool 进行hash分片
+ * 
+ * @author zhengzhiyuan
+ * @since May 20, 2016
+ */
 public class HashRedisUtil {
     private static final Logger LOGGER = LoggerFactory.getLogger(HashRedisUtil.class);
 
@@ -26,19 +30,23 @@ public class HashRedisUtil {
     private static final HashRedisUtil INSTANCE = new HashRedisUtil();
 
     private HashRedisUtil() {
+        initPool();
+    }
+
+    private void initPool() {
 
         // 操作超时时间,默认2秒
-        int timeout = NumberUtils.toInt(RedisConfigProperties.getConfigProperty("redis.timeout"), 2000);
+        int timeout = NumberUtils.toInt(HashRedisConfig.getConfigProperty("redis.timeout"), 2000);
         // jedis池最大连接数总数，默认8
-        int maxTotal = NumberUtils.toInt(RedisConfigProperties.getConfigProperty("redis.jedisPoolConfig.maxTotal"), 8);
+        int maxTotal = NumberUtils.toInt(HashRedisConfig.getConfigProperty("redis.jedisPoolConfig.maxTotal"), 8);
         // jedis池最大空闲连接数，默认8
-        int maxIdle = NumberUtils.toInt(RedisConfigProperties.getConfigProperty("redis.jedisPoolConfig.maxIdle"), 8);
+        int maxIdle = NumberUtils.toInt(HashRedisConfig.getConfigProperty("redis.jedisPoolConfig.maxIdle"), 8);
         // jedis池最少空闲连接数
-        int minIdle = NumberUtils.toInt(RedisConfigProperties.getConfigProperty("redis.jedisPoolConfig.minIdle"), 0);
+        int minIdle = NumberUtils.toInt(HashRedisConfig.getConfigProperty("redis.jedisPoolConfig.minIdle"), 0);
         // jedis池没有对象返回时，最大等待时间单位为毫秒
-        long maxWaitMillis = NumberUtils.toLong(RedisConfigProperties.getConfigProperty("redis.jedisPoolConfig.maxWaitTime"), -1);
+        long maxWaitMillis = NumberUtils.toLong(HashRedisConfig.getConfigProperty("redis.jedisPoolConfig.maxWaitTime"), -1);
         // 在borrow一个jedis实例时，是否提前进行validate操作
-        boolean testOnBorrow = Boolean.parseBoolean(RedisConfigProperties.getConfigProperty("redis.jedisPoolConfig.testOnBorrow"));
+        boolean testOnBorrow = Boolean.parseBoolean(HashRedisConfig.getConfigProperty("redis.jedisPoolConfig.testOnBorrow"));
 
         // 设置jedis连接池配置
         JedisPoolConfig poolConfig = new JedisPoolConfig();
@@ -49,7 +57,7 @@ public class HashRedisUtil {
         poolConfig.setTestOnBorrow(testOnBorrow);
 
         // 取得redis的url
-        String redisUrls = RedisConfigProperties.getConfigProperty("redis.jedisPoolConfig.urls");
+        String redisUrls = HashRedisConfig.getConfigProperty("redis.jedisPoolConfig.urls");
         if (redisUrls == null || redisUrls.trim().isEmpty()) {
             throw new IllegalStateException("the urls of redis is not configured");
         }
@@ -75,7 +83,7 @@ public class HashRedisUtil {
      * @param executor RedisExecutor接口的实现类
      * @return
      */
-    public <T> T execute(String key, RedisExecutor<T> executor) {
+    public <T> T execute(String key, HashRedisExecutor<T> executor) {
         Jedis jedis = jedisPools[(0x7FFFFFFF & key.hashCode()) % jedisPools.length].getResource();
         T result = null;
         try {
@@ -89,7 +97,7 @@ public class HashRedisUtil {
     }
 
     public String set(final String key, final String value) {
-        return execute(key, new RedisExecutor<String>() {
+        return execute(key, new HashRedisExecutor<String>() {
             @Override
             public String execute(Jedis jedis) {
                 return jedis.set(key, value);
@@ -98,7 +106,7 @@ public class HashRedisUtil {
     }
 
     public String set(final String key, final String value, final String nxxx, final String expx, final long time) {
-        return execute(key, new RedisExecutor<String>() {
+        return execute(key, new HashRedisExecutor<String>() {
             @Override
             public String execute(Jedis jedis) {
                 return jedis.set(key, value, nxxx, expx, time);
@@ -107,7 +115,7 @@ public class HashRedisUtil {
     }
 
     public String get(final String key) {
-        return execute(key, new RedisExecutor<String>() {
+        return execute(key, new HashRedisExecutor<String>() {
             @Override
             public String execute(Jedis jedis) {
                 return jedis.get(key);
@@ -116,7 +124,7 @@ public class HashRedisUtil {
     }
 
     public Boolean exists(final String key) {
-        return execute(key, new RedisExecutor<Boolean>() {
+        return execute(key, new HashRedisExecutor<Boolean>() {
             @Override
             public Boolean execute(Jedis jedis) {
                 return jedis.exists(key);
@@ -125,7 +133,7 @@ public class HashRedisUtil {
     }
 
     public Long setnx(final String key, final String value) {
-        return execute(key, new RedisExecutor<Long>() {
+        return execute(key, new HashRedisExecutor<Long>() {
             @Override
             public Long execute(Jedis jedis) {
                 return jedis.setnx(key, value);
@@ -134,7 +142,7 @@ public class HashRedisUtil {
     }
 
     public String setex(final String key, final int seconds, final String value) {
-        return execute(key, new RedisExecutor<String>() {
+        return execute(key, new HashRedisExecutor<String>() {
             @Override
             public String execute(Jedis jedis) {
                 return jedis.setex(key, seconds, value);
@@ -143,7 +151,7 @@ public class HashRedisUtil {
     }
 
     public Long expire(final String key, final int seconds) {
-        return execute(key, new RedisExecutor<Long>() {
+        return execute(key, new HashRedisExecutor<Long>() {
             @Override
             public Long execute(Jedis jedis) {
                 return jedis.expire(key, seconds);
@@ -152,7 +160,7 @@ public class HashRedisUtil {
     }
 
     public Long incr(final String key) {
-        return execute(key, new RedisExecutor<Long>() {
+        return execute(key, new HashRedisExecutor<Long>() {
             @Override
             public Long execute(Jedis jedis) {
                 return jedis.incr(key);
@@ -161,7 +169,7 @@ public class HashRedisUtil {
     }
 
     public Long decr(final String key) {
-        return execute(key, new RedisExecutor<Long>() {
+        return execute(key, new HashRedisExecutor<Long>() {
             @Override
             public Long execute(Jedis jedis) {
                 return jedis.decr(key);
@@ -170,7 +178,7 @@ public class HashRedisUtil {
     }
 
     public Long hset(final String key, final String field, final String value) {
-        return execute(key, new RedisExecutor<Long>() {
+        return execute(key, new HashRedisExecutor<Long>() {
             @Override
             public Long execute(Jedis jedis) {
                 return jedis.hset(key, field, value);
@@ -179,7 +187,7 @@ public class HashRedisUtil {
     }
 
     public String hget(final String key, final String field) {
-        return execute(key, new RedisExecutor<String>() {
+        return execute(key, new HashRedisExecutor<String>() {
             @Override
             public String execute(Jedis jedis) {
                 return jedis.hget(key, field);
@@ -188,7 +196,7 @@ public class HashRedisUtil {
     }
 
     public String hmset(final String key, final Map<String, String> hash) {
-        return execute(key, new RedisExecutor<String>() {
+        return execute(key, new HashRedisExecutor<String>() {
             @Override
             public String execute(Jedis jedis) {
                 return jedis.hmset(key, hash);
@@ -197,7 +205,7 @@ public class HashRedisUtil {
     }
 
     public List<String> hmget(final String key, final String... fields) {
-        return execute(key, new RedisExecutor<List<String>>() {
+        return execute(key, new HashRedisExecutor<List<String>>() {
             @Override
             public List<String> execute(Jedis jedis) {
                 return jedis.hmget(key, fields);
@@ -206,7 +214,7 @@ public class HashRedisUtil {
     }
 
     public Long del(final String key) {
-        return execute(key, new RedisExecutor<Long>() {
+        return execute(key, new HashRedisExecutor<Long>() {
             @Override
             public Long execute(Jedis jedis) {
                 return jedis.del(key);
@@ -215,7 +223,7 @@ public class HashRedisUtil {
     }
 
     public Map<String, String> hgetAll(final String key) {
-        return execute(key, new RedisExecutor<Map<String, String>>() {
+        return execute(key, new HashRedisExecutor<Map<String, String>>() {
             @Override
             public Map<String, String> execute(Jedis jedis) {
                 return jedis.hgetAll(key);
@@ -229,4 +237,3 @@ public class HashRedisUtil {
         }
     }
 }
-

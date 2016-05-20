@@ -2,6 +2,8 @@ package com.zzy.util;
 
 import org.junit.Test;
 
+import com.zzy.util.hash.HashRedisUtil;
+
 public class HashRedisUtilTest {
     @Test
     public void test() {
